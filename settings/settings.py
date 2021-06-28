@@ -184,3 +184,17 @@ LOGGING = {
         # 过滤器
     }
 }
+
+# 生成token的加密算法
+ALGORITHM: str = "HS256"
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.BasicAuthentication',
+        'utils.authentication.JwtAuthentication'
+    ]
+}
+
+SWAGGER_SETTINGS = {
+    'USE_SESSION_AUTH': False
+}

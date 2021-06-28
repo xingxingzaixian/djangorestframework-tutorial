@@ -5,36 +5,33 @@
 @description: 
 """
 import time
-from jwt import JWT, jwk_from_dict
+import logging
+
+from jose import jwt
 from django.conf import settings
+
+logger = logging.getLogger('request')
 
 
 class JwtUtil:
-    def __init__(self):
-        self.verifying_key = jwk_from_dict({
-            'kty': 'oct',
-            'kid': 'HMAC key used in JWS A.1 example',
-            'k': settings.SECRET_KEY
-        })
-
-    def gen_jwt_token(self, user):
-        token_dict = {
+    @staticmethod
+    def gen_jwt_token(user):
+        to_encode = {
             'username': user.username,
-            'phone': user.telephone,
+            'phonenumber': user.phonenumber,
             'exp': time.time() + 24 * 3600,
-            'iat': time.time()
         }
 
-        obj = JWT()
-        token = obj.encode(token_dict, key=self.verifying_key)
-        return token
+        encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+        return encoded_jwt
 
-    def check_jwt_token(self, value):
-        obj = JWT()
-        data = None
+    @staticmethod
+    def check_jwt_token(value):
+        playload = {}
         try:
-            data = obj.decode(value, key=self.verifying_key)
+            playload = jwt.decode(value, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
+                                  )
         except Exception as e:
-            print(e)
+            logger.exception(e)
 
-        return data
+        return playload

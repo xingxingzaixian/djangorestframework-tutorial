@@ -5,7 +5,9 @@
 - django
 - djangorestframework
 - django-cors-headers
-- Jwt
+- python-jose
+- drf-yasg
+- pymysql
 
 ## 初始化Django工程
 
