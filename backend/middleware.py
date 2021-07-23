@@ -9,4 +9,3 @@ class ExceptionMiddleware(MiddlewareMixin):
             return JsonResponse({'code': exception.code, 'msg': exception.msg, 'detail': exception.detail})
         except Exception as e:
             pass
-        

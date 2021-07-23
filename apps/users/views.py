@@ -9,6 +9,9 @@ from django.db.models import Q
 from django.contrib.auth import authenticate
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework.request import Request
+from rest_framework.generics import GenericAPIView
+
 from users.models import UserInfo
 from users.serializers import LoginSerivalizer, RegisterSerivalizer
 
@@ -16,10 +19,12 @@ LOG = logging.getLogger('request')
 
 
 # Create your views here.
-class LoginView(APIView):
+class LoginView(GenericAPIView):
     authentication_classes = []
+    # 这里的 serializer_class 将会提供给 API 文档生成
+    serializer_class = LoginSerivalizer
 
-    def post(self, request):
+    def post(self, request: Request):
         ser = LoginSerivalizer(data=request.data)
         ser.is_valid(raise_exception=True)
 
@@ -37,10 +42,11 @@ class LoginView(APIView):
         return Response(ret)
 
 
-class RegisterView(APIView):
+class RegisterView(GenericAPIView):
     authentication_classes = []
+    serializer_class = RegisterSerivalizer
 
-    def post(self, request):
+    def post(self, request: Request):
         ser = RegisterSerivalizer(data=request.data)
         ser.is_valid(raise_exception=True)
 

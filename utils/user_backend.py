@@ -10,7 +10,7 @@ from django.db.models import Q
 
 from users.models import UserInfo
 from utils.jwt_util import JwtUtil
-from utils.exception import AuthenticateException
+from utils.execption import AuthenticateException
 
 logger = logging.getLogger('request')
 

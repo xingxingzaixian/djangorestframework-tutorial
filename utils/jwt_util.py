@@ -18,7 +18,7 @@ class JwtUtil:
     def gen_jwt_token(user):
         to_encode = {
             'username': user.username,
-            'phonenumber': user.phonenumber,
+            'telephone': user.telephone,
             'exp': time.time() + 24 * 3600,
         }
 

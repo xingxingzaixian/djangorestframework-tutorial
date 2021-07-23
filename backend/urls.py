@@ -15,29 +15,20 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include, re_path
-from rest_framework import permissions
-from drf_yasg.views import get_schema_view
-from drf_yasg import openapi
-
-# swager文档
-schema_view = get_schema_view(
-    openapi.Info(
-        title="测试项目API",
-        default_version='v1.0',
-        description="测试工程接口文档",
-        terms_of_service="https://www.baidu.com",
-        contact=openapi.Contact(email="beixia1989@163.com")
-    ),
-    public=True,
-    authentication_classes=(),
-    permission_classes=(permissions.AllowAny,)
-)
+from django.views.generic.base import RedirectView
+from rest_framework.documentation import include_docs_urls
+from django.conf import settings
+from django.views.static import serve
 
 
 urlpatterns = [
-    re_path(r'^swagger(?P<format>\.json|\.yaml)$', schema_view.without_ui(cache_timeout=0), name='schema-json'),
-    path('docs', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
-    path('redoc', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),
+    path('', RedirectView.as_view(url='docs')),
+    path('docs/', include_docs_urls(title='API 文档', description='开发接口文档', authentication_classes=(),
+                                    permission_classes=())),
     path('admin/', admin.site.urls),
     path('user/', include('users.urls'))
 ]
+
+# 生产环境中使 API 文档也可访问
+if not settings.DEBUG:
+    urlpatterns += [re_path(r'^static/(?P<path>.*)$', serve, {'document_root': settings.STATIC_ROOT})]

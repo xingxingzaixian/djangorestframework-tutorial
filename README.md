@@ -1,18 +1,22 @@
-最近又开了新项目，后端服务器搭建依然使用我之前一个模板工程，整体我觉得还不错，结构相对清晰一些，最为一个通用的前后端分离后端服务器，还是非常不错的，已经在至少两个项目在使用了。以前我都是把之前的工程删掉逻辑代码，保留部分必要的工程初始化代码。所以就萌生了，把这个模板写下来，传到GitHub上，以备以后直接拉取使用。水平有限、能耐一般，仅代表自己的编程习惯，需要的同学可以参考一下。
+# 2021-07-23 更新记录
+- 重新使用 Django 3.2.4 构建项目
+- 增加 API 文档库 coreapi
 
-需要安装的Python库
+
+## 需要安装的Python库
 
 - django
 - djangorestframework
 - django-cors-headers
 - python-jose
-- drf-yasg
+- coreapi
 - pymysql
+- django-filter
 
 ## 初始化Django工程
 
 ```shell
-django-admin startproject xingxing
+django-admin startproject backend
 ```
 
 创建好工程后，我们要对目录和配置进行一些调整，首先在根目录下创建两个目录：apps和settings，将所有的app都存放到apps目录里面，把settings配置存放在settings目录下，这样我们的根目录就更加清晰了
@@ -21,7 +25,7 @@ django-admin startproject xingxing
 
 - 调整settings配置
 
-  首先将xingxing目录下的settings.py文件拷贝到settings目录下，创建dev.py和pro.py两个文件，主要用于开发配置和部署配置，将settings.py文件中的数据库配置和DEBUG移到这两个文件中，内容如下
+  首先将backend目录下的settings.py文件拷贝到settings目录下，创建dev.py和pro.py两个文件，主要用于开发配置和部署配置，将settings.py文件中的数据库配置和DEBUG移到这两个文件中，内容如下
 
   ![开发环境配置](https://tva1.sinaimg.cn/large/007S8ZIlly1gih1j0t8hpj30ex07u74s.jpg)
 
@@ -35,43 +39,53 @@ django-admin startproject xingxing
 
   ![image-20200906171003795](https://tva1.sinaimg.cn/large/007S8ZIlly1gih1n5ltc1j306z02dt8m.jpg)
 
-- 修改manage.py文件
-
-  将Django环境变量设置为开发环境
-
-  ![image-20200906170118839](https://tva1.sinaimg.cn/large/007S8ZIlly1gih1e1vk0cj30jr01h0sr.jpg)
-
-- 修改wsgi.py文件
-
-  将Django环境变量设置为发布环境
-
-  ![image-20200906170235295](https://tva1.sinaimg.cn/large/007S8ZIlly1gih1fdmmknj30l101g0sr.jpg)
-
 ## 增加多数据库配置
 
-- 在xingxing目录下增加router.py文件
+- 在backend目录下增加router.py文件
 
   路由配置文件当中的返回值是我们在DATABASES中配置的键，默认是default，按照一定的条件返回不同的键，每个键内配置不同的数据库连接，就可以实现Django项目连接多个数据库
 
   ```python
   class CustomRouter:
-      def db_for_read(self, model, **hints):
-          return 'default'
-  
-      def db_for_write(self, model, **hints):
-          return 'default'
-  
-      def allow_relation(self, obj1, obj2, **hints):
-          return 'default'
-  
-      def allow_migrate(self, db, app_label, model_name=None, **hints):
-          return 'default'
+    def db_for_read(self, model, **hints):
+        if model._meta.app_label in settings.DATABASE_APPS_MAPPING:
+            return settings.DATABASE_APPS_MAPPING[model._meta.app_label]
+
+    def db_for_write(self, model, **hints):
+        if model._meta.app_label in settings.DATABASE_APPS_MAPPING:
+            return settings.DATABASE_APPS_MAPPING[model._meta.app_label]
+
+    def allow_relation(self, obj1, obj2, **hints):
+        db_obj1 = settings.DATABASE_APPS_MAPPING.get(obj1._meta.app_label)
+        db_obj2 = settings.DATABASE_APPS_MAPPING.get(obj2._meta.app_label)
+        if db_obj1 and db_obj2:
+            if db_obj1 == db_obj2:
+                return True
+            else:
+                return False
+
+    def allow_syncdb(self, db, model):
+        if db in settings.DATABASE_APPS_MAPPING.values():
+            return settings.DATABASE_APPS_MAPPING.get(model._meta.app_label) == db
+        elif model._meta.app_label in settings.DATABASE_APPS_MAPPING:
+            return False
+
+    def allow_migrate(self, db, app_label, model=None, **hints):
+        """
+        Make sure the auth app only appears in the 'auth_db'
+        database.
+        """
+        if db in settings.DATABASE_APPS_MAPPING.values():
+            return settings.DATABASE_APPS_MAPPING.get(app_label) == db
+        elif app_label in settings.DATABASE_APPS_MAPPING:
+            return False
+        return None
   ```
 
 - 在settings.py文件中增加路由配置
 
   ```python
-  DATABASE_ROUTERS = ['xingxing.router.CustomRouter']
+  DATABASE_ROUTERS = ['backend.router.CustomRouter']
   ```
 
 ## 设置自定义用户模型
@@ -132,30 +146,9 @@ MIDDLEWARE = [
 
 CORS_ALLOW_CREDENTIALS = True
 CORS_ORIGIN_ALLOW_ALL = True
-CORS_ALLOW_METHODS = (
-  'DELETE',
-  'GET',
-  'OPTIONS',
-  'PATCH',
-  'POST',
-  'PUT',
-  'VIEW',
-)
+CORS_ALLOW_METHODS = ['*']
 
-CORS_ALLOW_HEADERS = (
-  'XMLHttpRequest', 
-  'X_FILENAME',
-  'accept-encoding',
-  'authorization',
-  'content-type',
-  'dnt',
-  'origin',
-  'user-agent',
-  'x-csrftoken',
-  'x-requested-with',
-  'Pragma',
-  'access-token'
-)
+CORS_ALLOW_HEADERS = ['*']
 ```
 
 ## jwt登录认证
@@ -210,48 +203,37 @@ CORS_ALLOW_HEADERS = (
 
   ```python
   import time
-  from jwt import JWT, jwk_from_dict
+  from jose import jwt
   from django.conf import settings
   
   
   class JwtUtil:
-      def __init__(self):
-          self.verifying_key = jwk_from_dict({
-              'kty': 'oct',
-              'kid': 'HMAC key used in JWS A.1 example',
-              'k': settings.SECRET_KEY
-          })
-  
-      def gen_jwt_token(self, user):
-          token_dict = {
-              'username': user.username,
-              'phone': user.telephone,
-              'exp': time.time() + 24 * 3600,
-              'iat': time.time()
-          }
-  
-          obj = JWT()
-          token = obj.encode(token_dict, key=self.verifying_key)
-          return token
-  
-      def check_jwt_token(self, value):
-          obj = JWT()
-          data = None
-          try:
-              data = obj.decode(value, key=self.verifying_key)
-          except Exception as e:
-              print(e)
-  
-          return data
+      @staticmethod
+    def gen_jwt_token(user):
+        to_encode = {
+            'username': user.username,
+            'telephone': user.telephone,
+            'exp': time.time() + 24 * 3600,
+        }
+
+        encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+        return encoded_jwt
+
+    @staticmethod
+    def check_jwt_token(value):
+        playload = {}
+        try:
+            playload = jwt.decode(value, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
+                                  )
+        except Exception as e:
+            logger.exception(e)
+
+        return playload
   ```
 
 - 在settings.py中增加跨域认证的字段
 
   ```python
-  CORS_ALLOW_HEADERS = (
-  	...
-    'access-token'
-  )
   
   REST_FRAMEWORK = {
       'DEFAULT_AUTHENTICATION_CLASSES': [
@@ -356,4 +338,4 @@ class RegisterView(APIView):
 
 还有一些其他的模块，例如serializers等，整个模板工程我会上传到GitHub上，以供大家参考使用
 
-最后，作为一个模板工程，还欠缺**权限管理、API文档**系统，我们后面再完善
+最后，作为一个模板工程，还欠缺**权限管理**系统，我们后面再完善
