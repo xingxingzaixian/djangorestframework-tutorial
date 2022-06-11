@@ -1,4 +1,9 @@
 # 更新记录
+### 2022-06-06
+- 更新项目依赖为最新
+- 使用logru作为日志记录模块
+- 删除 API 文档 coreapi，修改为 drf_spectacular
+
 ### 2021-07-23
 - 重新使用 Django 3.2.4 构建项目
 - 增加 API 文档库 coreapi
@@ -10,9 +15,11 @@
 - djangorestframework
 - django-cors-headers
 - python-jose
-- coreapi
+- drf_spectacular
+- drf_spectacular_sidecar
 - pymysql
 - django-filter
+- loguru
 
 ## 初始化Django工程
 
@@ -20,25 +27,9 @@
 django-admin startproject backend
 ```
 
-创建好工程后，我们要对目录和配置进行一些调整，首先在根目录下创建两个目录：apps和settings，将所有的app都存放到apps目录里面，把settings配置存放在settings目录下，这样我们的根目录就更加清晰了
+创建好工程后，我们要对目录和配置进行一些调整，首先在根目录下创建两个目录：apps和utils，将所有的app都存放到apps目录里面，utils目录下存放通用处理函数，这样我们的根目录就更加清晰了
 
-![image-20200906165728250](https://tva1.sinaimg.cn/large/007S8ZIlly1gih1a24xxyj306z07adg0.jpg)
-
-- 调整settings配置
-
-  首先将backend目录下的settings.py文件拷贝到settings目录下，创建dev.py和pro.py两个文件，主要用于开发配置和部署配置，将settings.py文件中的数据库配置和DEBUG移到这两个文件中，内容如下
-
-  ![开发环境配置](https://tva1.sinaimg.cn/large/007S8ZIlly1gih1j0t8hpj30ex07u74s.jpg)
-
-  ![发布环境](https://tva1.sinaimg.cn/large/007S8ZIlly1gih1jrxwzuj30ei081aak.jpg)
-
-  在settings.py文件中把apps添加到环境变量中
-
-  ![image-20200906170827998](https://tva1.sinaimg.cn/large/007S8ZIlly1gih1lhq8acj30gw04fdg5.jpg)
-
-  修改语言和时区
-
-  ![image-20200906171003795](https://tva1.sinaimg.cn/large/007S8ZIlly1gih1n5ltc1j306z02dt8m.jpg)
+![](https://s3.bmp.ovh/imgs/2022/06/06/f7f44ab816b75c5f.jpg)
 
 ## 增加多数据库配置
 
@@ -156,7 +147,7 @@ CORS_ALLOW_HEADERS = ['*']
 
 我们使用rest api接口，一般就很少使用用户名和密码认真，jwt认证是比较常用的，因此这也是项目初始化必须做的。要注意
 
-- 在根目录下增加utils目录，增加两个文件authentication.py和jwt_util.py
+- 在utils目录下增加auth目录，增加两个文件authentication.py和jwt_util.py
 
 - authentication.py文件
 
@@ -170,7 +161,6 @@ CORS_ALLOW_HEADERS = ['*']
   from threading import local
   
   _thread_local = local()
-  
   
   class JwtAuthentication(BaseAuthentication):
       def authenticate(self, request):
@@ -238,7 +228,7 @@ CORS_ALLOW_HEADERS = ['*']
   
   REST_FRAMEWORK = {
       'DEFAULT_AUTHENTICATION_CLASSES': [
-          'utils.authentications.JwtAuthentication'
+          'utils.auth.authentications.JwtAuthentication'
       ],
       'DATETIME_FORMAT': '%Y-%m-%d %H:%M:%S',
       'DATETIME_INPUT_FORMATS': '%Y-%m-%d %H:%M:%S'
@@ -248,7 +238,7 @@ CORS_ALLOW_HEADERS = ['*']
 
 ## 修改登录认证为JWT方式
 
-- 在utils目录创建user_backend.py文件
+- 在utils/auth目录创建user_backend.py文件
 
   ```python
   from django.contrib.auth import backends
@@ -273,65 +263,61 @@ CORS_ALLOW_HEADERS = ['*']
 - 在settings中设置自定义认证方式
 
   ```python
-  AUTHENTICATION_BACKENDS = ['utils.user_backend.UserBackend']
+  AUTHENTICATION_BACKENDS = ['utils.auth.user_backend.UserBackend']
   ```
 
 ## Django日志记录
 
-在settings.py中增加如下配置：
+在settings.py中增加如下配置： 
 
 ```python
 # 日志配置
-LOGGING = {
-    "version": 1,
-    # True表示禁用logger
-    "disable_existing_loggers": False,
-    'formatters': {
-        'default': {
-            'format': '%(levelno)s %(module)s %(asctime)s %(message)s ',
-            'datefmt': '%Y-%m-%d %A %H:%M:%S',
-        },
-    },
-
-    'handlers': {
-        'request_handlers': {
-            'level': 'DEBUG',
-            # 日志文件指定为5M, 超过5m重新命名，然后写入新的日志文件
-            'class': 'logging.handlers.RotatingFileHandler',
-            # 指定文件大小
-            'maxBytes': 5 * 1024,
-            # 指定文件地址
-            'filename': '%s/request.log' % LOG_PATH,
-            'formatter': 'default'
-        }
-    },
-    'loggers': {
-        'request': {
-            'handlers': ['request_handlers'],
-            'level': 'INFO'
-        }
-    },
-
-    'filters': {
-        # 过滤器
-    }
+LOGGER = {
+    'maxBytes': '10 MB', # 日志文件大小
+    'retention': 5, # 最多记录日志文件数量
+    'compression': 'zip', # 历史日志压缩格式
+    'level': 'INFO' # 日志级别：INFO、WARNING、ERROR
 }
+
+在utils目录下增加logger.py文件
+
+```python
+import time
+from pathlib import Path
+from loguru import logger
+from django.conf import settings
+
+log_path = Path(settings.LOG_PATH)
+
+def getLogger(name):
+    log_path_info = log_path.joinpath(f'{name}_{time.strftime("%Y-%m-%d")}.log')
+    # 日志简单配置 文件区分不同级别的日志
+    logger.add(log_path_info,
+              rotation=settings.LOGGER.get('maxBytes'),
+              encoding='utf-8',
+              enqueue=True,
+              level=settings.LOGGER.get('level'),
+              retention=settings.LOGGER.get('retention'),
+              compression=settings.LOGGER.get('compression'))
+
+    return logger
+
 ```
 
 在所有需要记录日志的文件中采用如下方式使用
 
 ```python
-import logging
-...
+from utils.logger import getLogger
 
-LOG = logging.getLogger('request')
+
+logger = getLogger('auth')
 
 class RegisterView(APIView):
     authentication_classes = []
 
     def post(self, request):
         ...
-        LOG.info('用户: %s 注册成功', username)
+        logger.info('用户: %s 注册成功', username)
         ...
 ```
 

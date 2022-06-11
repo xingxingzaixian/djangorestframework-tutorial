@@ -1,16 +1,18 @@
 [[source]]
-url = "http://mirrors.aliyun.com/pypi/simple/"
+url = "https://pypi.tuna.tsinghua.edu.cn/simple"
 verify_ssl = false
 name = "pypi"
 
 [packages]
-django = "==3.2.4"
-djangorestframework = "==3.12.4"
-django-cors-headers = "==3.7.0"
-python-jose = "==3.3.0"
-pymysql = "==1.0.2"
-django-filter = "==2.4.0"
-coreapi = "==2.3.3"
+Django = "*"
+djangorestframework = "*"
+django-cors-headers = "*"
+python-jose = "*"
+PyMySQL = "*"
+django-filter = "*"
+loguru = "*"
+drf-spectacular = {extras = ["sidecar"], version = "*"}
+casbin-django-orm-adapter = "*"
 
 [dev-packages]
 
